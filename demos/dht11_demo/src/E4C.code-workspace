@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "../.."
+		},
+		{
+			"name": "dht11_demo",
+			"path": ".."
+		}
+	],
+	"settings": {}
+}
