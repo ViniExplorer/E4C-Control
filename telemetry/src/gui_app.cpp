@@ -233,7 +233,7 @@ void GroundStationApp::render_control_panel(const TelemetrySnapshot& s) {
     if (s.sw_estop_engaged || s.hw_estop_engaged) {
         ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.45f, 0.10f, 0.10f, 0.95f));
         ImGui::BeginChild("DumpAlertBox", ImVec2(-1, 60), true);
-        ImGui::TextColored(ImVec4(1.0f, 0.25f, 0.25f, 1.0f), "[!] E-STOP TRIGGERED: 100% DIVERT");
+        ImGui::TextColored(ImVec4(1.0f, 0.25f, 0.25f, 1.0f), "[!] E-STOP TRIGGERED: 100%% DIVERT");
         ImGui::Text("Grid Disconnected. Dissipating: %.1f W", s.power_dump);
         ImGui::EndChild();
         ImGui::PopStyleColor();
