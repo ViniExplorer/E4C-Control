@@ -18,9 +18,8 @@ PubSubClient mqttClient(espClient);
 unsigned long last_read_time = 0;
 const unsigned long READ_INTERVAL = 2000;
 
-// MQTT Callback function to handle incoming messages
+// MQTT Callback function to handle incoming commands
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
-    // Convert incoming byte array to a null-terminated string
     char message[length + 1];
     for (unsigned int i = 0; i < length; i++) {
         message[i] = (char)payload[i];
@@ -29,7 +28,6 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
     Serial.printf("\n[MQTT RX] Topic: %s | Payload: %s\n", topic, message);
 
-    // Parse the JSON payload
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, message);
 
@@ -62,7 +60,6 @@ void reconnect() {
         Serial.print("Attempting MQTT connection...");
         if (mqttClient.connect("ESP32_Telemetry_Node")) {
             Serial.println("connected");
-            
             mqttClient.subscribe("turbine/control/#");
             Serial.println("Subscribed to turbine/control/#");
         } else {
@@ -87,8 +84,8 @@ void setup() {
     Serial.println(WiFi.softAPIP());
 
     mqttClient.setServer(brokerIP, 1883);
-    
     mqttClient.setCallback(mqttCallback);
+    mqttClient.setKeepAlive(60); // 60-second broker keepalive window
     
     setup_temp_humid();
 }
@@ -98,7 +95,6 @@ void loop() {
         reconnect();
     }
     
-    // Process incoming messages and keep connection alive
     mqttClient.loop(); 
 
     unsigned long current_time = millis();
@@ -107,12 +103,17 @@ void loop() {
 
         float temp = 0.0;
         float humid = 0.0;
+        bool valid = read_temp_humid(temp, humid);
 
-        if (read_temp_humid(temp, humid)) {
-            char payload[128];
-            snprintf(payload, sizeof(payload), "{\"temperature\":%.2f, \"humidity\":%.2f}", temp, humid);
-            
-            mqttClient.publish("turbine/telemetry", payload);
+        char payload[128];
+        if (valid) {
+            snprintf(payload, sizeof(payload), 
+                     "{\"temperature\":%.2f, \"humidity\":%.2f}", temp, humid);
+        } else {
+            snprintf(payload, sizeof(payload), 
+                     "{\"temperature\":0.00, \"humidity\":0.00, \"sensor_error\":true}");
         }
+        
+        mqttClient.publish("turbine/telemetry", payload);
     }
 }

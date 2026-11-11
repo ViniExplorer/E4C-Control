@@ -2,7 +2,7 @@
 #include <DHT.h>
 #include "temp_humid.hpp"
 
-#define DHTPIN 15  
+#define DHTPIN 4  
 #define DHTTYPE DHT11
 
 DHT dht(DHTPIN, DHTTYPE);
