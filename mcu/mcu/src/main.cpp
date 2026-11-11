@@ -19,7 +19,9 @@ WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
 unsigned long last_read_time = 0;
-const unsigned long READ_INTERVAL = 200; // 5 Hz telemetry stream for responsive plotting
+const unsigned long READ_INTERVAL = 100; // 100ms interval matching bench test output
+
+static float target_voltage = 58.0f; // Track local setpoint for telemetry print
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
     char message[length + 1];
@@ -39,6 +41,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
     if (strcmp(topic, "turbine/control/safeguard") == 0) {
         float trip_volts = doc["dump_trip_voltage"];
+        target_voltage = trip_volts;
         set_overvoltage_threshold(trip_volts);
         Serial.printf("--> ACTION: Updated Overvoltage Threshold to %.2f V\n", trip_volts);
     } 
@@ -81,11 +84,11 @@ void setup() {
     setup_temp_humid();
     setup_voltage_current();
 
-    // Link simulated pot reading to the FreeRTOS regulator
+    // Link potentiometer reader to FreeRTOS PID task
     register_voltage_reader(read_potentiometer_simulated_voltage);
     setup_voltage_regulator();
 
-    Serial.println("System fully initialized.");
+    Serial.println("--- Voltage Regulator Bench & Telemetry Node Active ---");
 }
 
 void loop() {
@@ -104,10 +107,18 @@ void loop() {
 
         float v = get_current_voltage();
         float duty = get_current_brake_duty();
+        float raw_pwm = get_current_pwm_raw();
         float current = get_estimated_current(v, duty);
         float power = v * current;
 
-        // Build telemetry JSON frame for ImGui ground station
+        // Exact bench test serial monitor format
+        Serial.printf("Bus V: %5.2f V | Target: %5.2f V | Duty: %5.1f%% (Raw PWM: %3.0f)\n",
+                      v,
+                      target_voltage,
+                      duty,
+                      raw_pwm);
+
+        // Telemetry publish to MQTT broker
         char payload[256];
         snprintf(payload, sizeof(payload),
             "{\"voltage\":%.2f,\"current\":%.2f,\"power\":%.2f,\"temperature\":%.2f,\"humidity\":%.2f,\"brake_duty\":%.2f}",
