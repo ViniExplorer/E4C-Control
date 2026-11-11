@@ -3,10 +3,10 @@
 #include <freertos/task.h>
 #include <freertos/semphr.h>
 
-#define MOSFET2_PWM_PIN    18   // LED / Dump Gate Driver
+#define MOSFET2_PWM_PIN    18   //LED DUMP GATE DRIVER
 #define PWM_FREQ           20000          
 #define PWM_RESOLUTION     8        
-#define PWM_MAX_DUTY       ((1 << PWM_RESOLUTION) - 1) // 255
+#define PWM_MAX_DUTY       ((1 << PWM_RESOLUTION) - 1) // 255 (how fast to switch mosfet)
 
 static float target_voltage = 58.0f;    
 static volatile float current_voltage = 0.0f;
@@ -52,7 +52,7 @@ void voltage_regulator_task(void *pvParameters) {
             xSemaphoreGive(configMutex);
         }
 
-        // Dump load activates when V > Target (Error > 0)
+        // dump load activates when V > Target (Error > 0)
         float error = filtered_v - setpoint;
 
         if (error <= 0.0f) {
