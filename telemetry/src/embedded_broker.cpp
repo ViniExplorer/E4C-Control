@@ -32,8 +32,8 @@ bool EmbeddedBroker::start(const std::string& listen_endpoint) {
     pid_t pid;
     char *argv[] = {
         (char*)"mosquitto",
-        (char*)"-p",
-        (char*)"1883",
+        (char*)"-c",
+        (char*)"mosquitto.conf",
         nullptr
     };
 

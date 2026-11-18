@@ -1,5 +1,9 @@
 {
     "python-envs.defaultEnvManager": "ms-python.python:venv",
     "python-envs.defaultPackageManager": "ms-python.python:pip",
+<<<<<<< HEAD
     "cmake.sourceDirectory": "C:/Users/vinic/OneDrive - University of Edinburgh/E4C/E4C-Control/telemetry"
+=======
+    "cmake.sourceDirectory": "/Users/lachlanblack/Winds of Change Control/wind_turbine_ground_station/telemetry"
+>>>>>>> 45cedc5 (nothng)
 }
