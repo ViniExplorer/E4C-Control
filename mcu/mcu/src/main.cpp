@@ -4,10 +4,10 @@
 #include <ArduinoJson.h>
 
 #include "sensors/temp_humid.hpp"
-#include "sensors/voltage_current.hpp"
+#include "sensors/voltage.hpp"
 #include "regulator/voltage_regulator.hpp"
 
-const char* ap_ssid     = "ESP32_Telemetry_AP";
+const char* ap_ssid = "ESP32_Telemetry_AP";
 const char* ap_password = "password123";
 
 IPAddress local_IP(192, 168, 4, 1);
@@ -19,7 +19,7 @@ WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
 unsigned long last_read_time = 0;
-const unsigned long READ_INTERVAL = 100; // 100ms interval matching bench test output
+const unsigned long READ_INTERVAL = 100; // 100ms telemetry/serial output interval
 
 static float target_voltage = 58.0f; // Track local setpoint for telemetry print
 
@@ -44,7 +44,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
         target_voltage = trip_volts;
         set_overvoltage_threshold(trip_volts);
         Serial.printf("--> ACTION: Updated Overvoltage Threshold to %.2f V\n", trip_volts);
-    } 
+    }
     else if (strcmp(topic, "turbine/control/emergency") == 0) {
         bool estop = doc["emergency_stop"];
         if (estop) {
@@ -82,10 +82,13 @@ void setup() {
     mqttClient.setKeepAlive(60);
 
     setup_temp_humid();
-    setup_voltage_current();
+    setup_voltage();
 
-    // Link potentiometer reader to FreeRTOS PID task
-    register_voltage_reader(read_potentiometer_simulated_voltage);
+    // Perform one initial blocking read so PID starts with real bus voltage
+    update_pzem_sensor();
+
+    // Link PZEM voltage reader to FreeRTOS PID task
+    register_voltage_reader(read_pzem_voltage);
     setup_voltage_regulator();
 
     Serial.println("--- Voltage Regulator Bench & Telemetry Node Active ---");
@@ -97,6 +100,9 @@ void loop() {
     }
     mqttClient.loop();
 
+    // Poll PZEM-017 over RS485 (internally throttled to every 250ms)
+    update_pzem_sensor();
+
     unsigned long current_time = millis();
     if (current_time - last_read_time >= READ_INTERVAL) {
         last_read_time = current_time;
@@ -105,11 +111,11 @@ void loop() {
         float humid = 0.0f;
         read_temp_humid(temp, humid);
 
-        float v = get_current_voltage();
-        float duty = get_current_brake_duty();
+        float v       = get_current_voltage(); // Or read_pzem_voltage()
+        float current = read_pzem_current();
+        float power   = read_pzem_power();
+        float duty    = get_current_brake_duty();
         float raw_pwm = get_current_pwm_raw();
-        float current = get_estimated_current(v, duty);
-        float power = v * current;
 
         // Exact bench test serial monitor format
         Serial.printf("Bus V: %5.2f V | Target: %5.2f V | Duty: %5.1f%% (Raw PWM: %3.0f)\n",
@@ -121,8 +127,8 @@ void loop() {
         // Telemetry publish to MQTT broker
         char payload[256];
         snprintf(payload, sizeof(payload),
-            "{\"voltage\":%.2f,\"current\":%.2f,\"power\":%.2f,\"temperature\":%.2f,\"humidity\":%.2f,\"brake_duty\":%.2f}",
-            v, current, power, temp, humid, duty);
+                 "{\"voltage\":%.2f,\"current\":%.2f,\"power\":%.2f,\"temperature\":%.2f,\"humidity\":%.2f,\"brake_duty\":%.2f}",
+                 v, current, power, temp, humid, duty);
 
         mqttClient.publish("turbine/telemetry", payload);
     }
